@@ -1,7 +1,12 @@
 import { useState, useRef } from "react";
 import { separateStems, fetchStemBlob, deleteJob } from "../api.js";
 import { uploadStemToStorage } from "../firebase.js";
-import StemPlayer from "./StemPlayer.jsx";
+import FileUpload from "./FileUpload.jsx";
+import Options from "./Options.jsx";
+import Actions from "./Actions.jsx";
+import ProgressBar from "./ProgressBar.jsx";
+import Error from "./Error.jsx";
+import StemPlayerGroup from "./StemPlayerGroup.jsx";
 import "./styles.css";
 
 const STEM_LABELS = {
@@ -106,7 +111,6 @@ export default function App() {
     fileInputRef.current.value = "";
   }
 
-  const hasStem = (name) => name in stems;
   const isProcessing = status === "uploading" || status === "processing";
 
   return (
@@ -117,109 +121,45 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        {/* Upload Zone */}
-        <section
-          className={`drop-zone ${file ? "has-file" : ""}`}
-          onDragOver={(e) => e.preventDefault()}
+        <FileUpload
+          file={file}
+          onFileChange={handleFileChange}
           onDrop={handleDrop}
-          onClick={() => fileInputRef.current.click()}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".mp3,.wav,.flac,.ogg,.m4a"
-            style={{ display: "none" }}
-            onChange={handleFileChange}
-          />
-          {file ? (
-            <div className="file-info">
-              <span className="file-name">{file.name}</span>
-              <span className="file-size">{(file.size / (1024 * 1024)).toFixed(2)} MB</span>
-            </div>
-          ) : (
-            <div className="drop-prompt">
-              <span className="drop-icon">🎵</span>
-              <p>Drop audio file here or click to browse</p>
-              <span className="formats">MP3 · WAV · FLAC · OGG · M4A — max 100MB</span>
-            </div>
-          )}
-        </section>
+          fileInputRef={fileInputRef}
+          isProcessing={isProcessing}
+        />
 
-        {/* Options */}
-        <section className="options">
-          <label className="option-toggle">
-            <input
-              type="checkbox"
-              checked={drumsDetail}
-              onChange={(e) => setDrumsDetail(e.target.checked)}
-              disabled={isProcessing}
-            />
-            Separate drum sub-stems (kick, snare, hi-hat)
-          </label>
-          <label className="option-toggle">
-            <input
-              type="checkbox"
-              checked={uploadToFirebase}
-              onChange={(e) => setUploadToFirebase(e.target.checked)}
-              disabled={isProcessing}
-            />
-            Upload stems to Firebase Storage
-          </label>
-        </section>
+        <Options
+          drumsDetail={drumsDetail}
+          onDrumsDetailChange={(e) => setDrumsDetail(e.target.checked)}
+          uploadToFirebase={uploadToFirebase}
+          onUploadToFirebaseChange={(e) => setUploadToFirebase(e.target.checked)}
+          isProcessing={isProcessing}
+        />
 
-        {/* Actions */}
-        <section className="actions">
-          <button
-            className="btn-primary"
-            onClick={handleSeparate}
-            disabled={!file || isProcessing}
-          >
-            {isProcessing ? "Processing..." : "Separate Stems"}
-          </button>
-          {(status === "done" || status === "error") && (
-            <button className="btn-secondary" onClick={handleReset}>
-              Start Over
-            </button>
-          )}
-        </section>
+        <Actions
+          onSeparate={handleSeparate}
+          onReset={handleReset}
+          file={file}
+          isProcessing={isProcessing}
+          status={status}
+        />
 
-        {/* Progress */}
-        {isProcessing && (
-          <div className="progress-bar-container">
-            <div className="progress-bar-track">
-              <div className="progress-bar-fill" />
-            </div>
-            <p className="progress-label">{progress}</p>
-          </div>
-        )}
+        {isProcessing && <ProgressBar progress={progress} />}
 
-        {/* Error */}
-        {status === "error" && (
-          <div className="error-box">
-            <strong>Error:</strong> {error}
-          </div>
-        )}
+        {status === "error" && <Error error={error} />}
 
-        {/* Stem Players */}
         {status === "done" && (
           <section className="stems-section">
-            {Object.entries(STEM_GROUPS).map(([groupName, stemNames]) => {
-              const available = stemNames.filter(hasStem);
-              if (!available.length) return null;
-              return (
-                <div key={groupName} className="stem-group">
-                  <h2 className="stem-group-title">{groupName}</h2>
-                  {available.map((name) => (
-                    <StemPlayer
-                      key={name}
-                      label={STEM_LABELS[name] || name}
-                      objectUrl={stems[name]}
-                      fileName={`${name}.wav`}
-                    />
-                  ))}
-                </div>
-              );
-            })}
+            {Object.entries(STEM_GROUPS).map(([groupName, stemNames]) => (
+              <StemPlayerGroup
+                key={groupName}
+                groupName={groupName}
+                stemNames={stemNames}
+                stems={stems}
+                STEM_LABELS={STEM_LABELS}
+              />
+            ))}
           </section>
         )}
       </main>
